@@ -40,6 +40,13 @@ jobs:
             rm -rf "$TMP"
           fi
 
+      # Launcher icon + splash screen come from branding/*.png, generated here
+      # because android/ is not committed.
+      - name: Apply launcher icon and splash
+        run: |
+          python3 -m pip install --quiet --disable-pip-version-check pillow
+          python3 tool/apply_branding.py
+
       # url_launcher needs these intents declared so canLaunchUrl() works on
       # Android 11+ (WhatsApp, dialer, browser, email).
       - name: Ensure Android intent queries (url_launcher)

@@ -34,27 +34,26 @@ class HomeScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: <Widget>[
-                      const Text(
-                        'AEROPULSE',
-                        style: TextStyle(
-                          fontSize: 46,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 7,
-                          height: 1.0,
-                          color: Colors.white,
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 400, maxHeight: 210),
+                        child: Image.asset(
+                          'assets/branding/logo.png',
+                          fit: BoxFit.contain,
+                          alignment: Alignment.centerLeft,
+                          filterQuality: FilterQuality.high,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 10),
                       const Text(
                         'HORIZON  DRIFT',
                         style: TextStyle(
-                          fontSize: 13,
-                          letterSpacing: 11,
+                          fontSize: 12,
+                          letterSpacing: 10,
                           fontWeight: FontWeight.w600,
                           color: Color(0xFF22D3EE),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
                       const Text(
                         'Real physics. Pure 3D. Built with Flutter.',
                         style: TextStyle(fontSize: 13, color: Color(0x99FFFFFF)),

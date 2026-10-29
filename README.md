@@ -57,6 +57,15 @@ Landscape only. On-screen steering left/right, gas, brake/reverse, and a
 handbrake that cuts rear lateral grip for drifting. The HUD can be hidden for a
 clean cinematic view.
 
+## Branding
+
+`branding/icon_master.png` (the car mark) and `branding/splash_master.png` (the
+full lock-up) are the sources for the Android launcher icon and splash screen.
+`tool/apply_branding.py` generates every mipmap density plus a centred splash
+drawable — the workflow runs it right after `android/` is created, so the icon
+survives every build. `assets/branding/logo.png` is the transparent version the
+home screen shows.
+
 ## Build
 
 There is no Android/iOS project checked in. The `Build APK` workflow generates

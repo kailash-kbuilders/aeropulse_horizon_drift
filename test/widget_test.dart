@@ -17,7 +17,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('AEROPULSE'), findsOneWidget);
+    expect(find.text('HORIZON  DRIFT'), findsOneWidget);
     expect(find.text('RACE'), findsOneWidget);
     expect(find.text('GARAGE'), findsOneWidget);
   });
