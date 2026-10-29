@@ -5,27 +5,39 @@ Runs inside CI, right after the android/ folder has been generated (android/ is
 not committed, so this has to be re-applied on every build).
 
     python3 tool/apply_branding.py
+
+Produces:
+  * mipmap-anydpi-v26/ic_launcher.xml  — adaptive icon (white background layer
+    + the car as the foreground layer), so the launcher draws it with the normal
+    rounded / circular mask instead of a plain square.
+  * mipmap-*/ic_launcher.png           — legacy fallback, already rounded.
+  * mipmap-*/ic_launcher_foreground.png
+  * drawable-nodpi/splash_logo.png     — white splash art.
 """
 import pathlib
 import sys
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 RES = ROOT / "android/app/src/main/res"
-ICON_MASTER = ROOT / "branding/icon_master.png"
+ART = ROOT / "branding/icon_art.png"
 SPLASH_MASTER = ROOT / "branding/splash_master.png"
 
-# Must match the background baked into the master images.
-SPLASH_BG = "#1D252C"
+WHITE = (255, 255, 255, 255)
+ICON_BG = "#FFFFFF"
 
-DENSITIES = {
-    "mdpi": 48,
-    "hdpi": 72,
-    "xhdpi": 96,
-    "xxhdpi": 144,
-    "xxxhdpi": 192,
-}
+# legacy launcher icon (48dp)
+LEGACY = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
+# adaptive icon canvas is 108dp; the art must stay inside the 66dp safe circle
+ADAPTIVE = {"mdpi": 108, "hdpi": 162, "xhdpi": 216, "xxhdpi": 324, "xxxhdpi": 432}
+
+ADAPTIVE_XML = """<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/icon_bg" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+</adaptive-icon>
+"""
 
 LAUNCH_BACKGROUND = """<?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
@@ -38,9 +50,34 @@ LAUNCH_BACKGROUND = """<?xml version="1.0" encoding="utf-8"?>
 
 COLORS_XML = """<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="splash_bg">%s</color>
+    <color name="splash_bg">#FFFFFF</color>
+    <color name="icon_bg">%s</color>
 </resources>
-""" % SPLASH_BG
+""" % ICON_BG
+
+
+def rounded_icon(art: Image.Image, size: int) -> Image.Image:
+    """White rounded tile with the car centred — the pre-Android-8 look."""
+    scale = 4  # draw big, then downscale for clean edges
+    s = size * scale
+    tile = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(tile)
+    draw.rounded_rectangle([0, 0, s - 1, s - 1], radius=int(s * 0.22), fill=WHITE)
+
+    target = s * 0.68
+    ratio = target / max(art.size)
+    scaled = art.resize((max(1, int(art.width * ratio)), max(1, int(art.height * ratio))), Image.LANCZOS)
+    tile.paste(scaled, ((s - scaled.width) // 2, (s - scaled.height) // 2), scaled)
+    return tile.resize((size, size), Image.LANCZOS)
+
+
+def adaptive_foreground(art: Image.Image, size: int) -> Image.Image:
+    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    target = size * 0.58  # stays inside the 66dp safe zone
+    ratio = target / max(art.size)
+    scaled = art.resize((max(1, int(art.width * ratio)), max(1, int(art.height * ratio))), Image.LANCZOS)
+    canvas.paste(scaled, ((size - scaled.width) // 2, (size - scaled.height) // 2), scaled)
+    return canvas
 
 
 def main() -> int:
@@ -48,21 +85,21 @@ def main() -> int:
         print("android/ res folder not found - nothing to brand")
         return 0
 
-    icon = Image.open(ICON_MASTER).convert("RGB")
-    for density, size in DENSITIES.items():
+    art = Image.open(ART).convert("RGBA")
+
+    for density, size in LEGACY.items():
         folder = RES / ("mipmap-" + density)
         folder.mkdir(parents=True, exist_ok=True)
-        icon.resize((size, size), Image.LANCZOS).save(folder / "ic_launcher.png")
-        print("icon ->", folder / "ic_launcher.png")
+        rounded_icon(art, size).save(folder / "ic_launcher.png")
+        adaptive_foreground(art, ADAPTIVE[density]).save(folder / "ic_launcher_foreground.png")
+        print("icon ->", density, size)
 
-    # An adaptive icon would crop the art to the device mask and lose the
-    # padding we baked in, so drop it and let Android use the plain PNGs.
     anydpi = RES / "mipmap-anydpi-v26"
-    if anydpi.is_dir():
-        for item in anydpi.iterdir():
-            item.unlink()
-        anydpi.rmdir()
-        print("removed mipmap-anydpi-v26 (adaptive icon)")
+    anydpi.mkdir(parents=True, exist_ok=True)
+    for leftover in anydpi.iterdir():
+        leftover.unlink()
+    (anydpi / "ic_launcher.xml").write_text(ADAPTIVE_XML)
+    print("adaptive icon ->", anydpi / "ic_launcher.xml")
 
     splash = Image.open(SPLASH_MASTER).convert("RGB")
     nodpi = RES / "drawable-nodpi"

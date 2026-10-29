@@ -80,12 +80,16 @@ shadow frustum that follows the car.
 
 ## Branding
 
-`branding/icon_master.png` (the car mark) and `branding/splash_master.png` (the
-full lock-up) are the sources for the Android launcher icon and splash screen.
-`tool/apply_branding.py` generates every mipmap density plus a centred splash
-drawable — the workflow runs it right after `android/` is created, so the icon
-survives every build. `assets/branding/logo.png` is the transparent version the
-home screen shows.
+`branding/icon_art.png` (the car, transparent), `branding/icon_master.png` and
+`branding/splash_master.png` (white backgrounds) feed `tool/apply_branding.py`,
+which the workflow runs right after `android/` is created:
+
+- an **adaptive icon** (`mipmap-anydpi-v26/ic_launcher.xml` — white background
+  layer plus the car as the foreground layer), so the launcher applies its usual
+  rounded / circular mask instead of showing a hard square,
+- a rounded legacy `ic_launcher.png` for Android 7 and older,
+- a white splash screen,
+- and `assets/branding/logo.png`, the rounded white tile the home screen shows.
 
 ## Build
 

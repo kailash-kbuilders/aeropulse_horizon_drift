@@ -113,6 +113,7 @@
     raceStart: 0,
     drifting: 0,
     flipTimer: 0,
+    reverseHold: 0,
     pos: 1,
     total: 1
   };
@@ -1161,6 +1162,7 @@
     state.bestLap = 0;
     state.drifting = 0;
     state.flipTimer = 0;
+    state.reverseHold = 0;
 
     input.throttle = 0;
     input.brake = 0;
@@ -1266,30 +1268,42 @@
     vehicle.setSteeringValue(steer, 1);
 
     var engine = cfg.engineForce * ENGINE_SCALE;
-    var force = 0;
-    var frontBrake = 0;
+    var force = 0;        // + drives the nose forward
+    var brakeAll = 0;
+
+    /* Cannon's raycast vehicle pushes the chassis along -Z for a positive
+       engine force, which made the car drive tail-first. `drive` is the game's
+       own sign (+ = forward) and is flipped once when it is applied below. */
+    /* reverse only after the car has actually been standing still on the
+       brake for a moment — holding the pedal at speed must never flip it */
+    if (input.brake > 0 && input.throttle <= 0 && fwdSpeed < 0.8) {
+      state.reverseHold += dt;
+    } else {
+      state.reverseHold = 0;
+    }
+    var reversing = state.reverseHold > 0.3;
 
     if (input.throttle > 0 && fwdSpeed < cfg.topSpeed) {
       force = engine * input.throttle;
-    } else if (input.brake > 0) {
-      if (fwdSpeed > 1.2) {
-        frontBrake = 60 * input.brake;
-      } else {
-        force = -engine * 0.5 * input.brake;
-      }
+    } else if (reversing && fwdSpeed > -9) {
+      force = -engine * 0.42 * input.brake;
     }
 
-    vehicle.applyEngineForce(force, 2);
-    vehicle.applyEngineForce(force, 3);
+    if (input.brake > 0 && !reversing) {
+      brakeAll = 180 * input.brake;
+    }
+
+    vehicle.applyEngineForce(-force, 2);
+    vehicle.applyEngineForce(-force, 3);
     vehicle.applyEngineForce(0, 0);
     vehicle.applyEngineForce(0, 1);
 
-    vehicle.setBrake(frontBrake, 0);
-    vehicle.setBrake(frontBrake, 1);
+    vehicle.setBrake(brakeAll, 0);
+    vehicle.setBrake(brakeAll, 1);
 
-    var handbrake = input.handbrake ? 95 : 0;
-    vehicle.setBrake(handbrake, 2);
-    vehicle.setBrake(handbrake, 3);
+    var handbrake = input.handbrake ? 200 : 0;
+    vehicle.setBrake(input.handbrake ? handbrake : brakeAll, 2);
+    vehicle.setBrake(input.handbrake ? handbrake : brakeAll, 3);
 
     var rearSlip = input.handbrake ? cfg.frictionSlip * 0.42 : cfg.frictionSlip;
     vehicle.wheelInfos[2].frictionSlip = rearSlip;
