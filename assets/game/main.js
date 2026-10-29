@@ -55,7 +55,7 @@
       groundTex: 'asphalt', groundColor: 0x0b0f17,
       roadColor: 0x1a2130, lineColor: 0x2fe4ff,
       rail: 'neon', railColor: 0x0f1826, railEmissive: 0x27d9ff,
-      decor: 'city',
+      decor: 'city', env: 'neon', skyImage: false,
       sun: 0xbfd8ff, sunIntensity: 1.15, hemiSky: 0x8fd8ff, hemiGround: 0x0b1220,
       exposure: 1.05
     },
@@ -65,7 +65,7 @@
       groundTex: 'sand', groundColor: 0x9a7448,
       roadColor: 0x6a5335, lineColor: 0xf4f0e2,
       rail: 'rail', railColor: 0x9aa0a6, railEmissive: 0x000000,
-      decor: 'rocks',
+      decor: 'rocks', env: 'canyon', skyImage: true,
       sun: 0xffd9a0, sunIntensity: 1.7, hemiSky: 0xffe6c0, hemiGround: 0x6b4a2b,
       exposure: 1.0
     },
@@ -75,7 +75,7 @@
       groundTex: 'grass', groundColor: 0x527c3c,
       roadColor: 0x4a4e55, lineColor: 0xf4f4f4,
       rail: 'rail', railColor: 0xb9c0c7, railEmissive: 0x000000,
-      decor: 'forest',
+      decor: 'forest', env: 'alpine', skyImage: true,
       sun: 0xfff2d8, sunIntensity: 1.9, hemiSky: 0xdfefff, hemiGround: 0x40603a,
       exposure: 1.0
     }
@@ -225,6 +225,68 @@
     pmrem.dispose();
   }
   buildEnvironment();
+
+  /* Real sky + reflection probe per track. The images are embedded as data
+     URIs (assets/game/env_data.js) so nothing has to be fetched over XHR,
+     which a WebView blocks for file:// pages. */
+  var envCache = {};
+  var envToken = 0;
+
+  function applyEnvironment(theme) {
+    var id = theme.env;
+    var token = ++envToken;
+
+    function use(entry) {
+      if (token !== envToken) return; // track changed while loading
+      if (entry) {
+        scene.environment = entry.envMap;
+        scene.background = theme.skyImage ? entry.texture : null;
+        skyDome.visible = !theme.skyImage;
+        hemi.intensity = 0.35;
+        ambient.intensity = theme.decor === 'city' ? 0.12 : 0.08;
+      } else {
+        scene.environment = envTarget ? envTarget.texture : null;
+        scene.background = null;
+        skyDome.visible = true;
+        hemi.intensity = 0.85;
+        ambient.intensity = theme.decor === 'city' ? 0.15 : 0.3;
+      }
+    }
+
+    if (envCache[id]) {
+      use(envCache[id]);
+      return;
+    }
+    var dataUri = window.__AP_ENV && window.__AP_ENV[id];
+    if (!dataUri) {
+      use(null);
+      return;
+    }
+
+    try {
+      new THREE.TextureLoader().load(
+        dataUri,
+        function (tex) {
+          try {
+            tex.mapping = THREE.EquirectangularReflectionMapping;
+            if ('encoding' in tex && THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
+            var pmrem = new THREE.PMREMGenerator(renderer);
+            pmrem.compileEquirectangularShader();
+            var rt = pmrem.fromEquirectangular(tex);
+            pmrem.dispose();
+            envCache[id] = { texture: tex, envMap: rt.texture };
+            use(envCache[id]);
+          } catch (err) {
+            use(null);
+          }
+        },
+        undefined,
+        function () { use(null); }
+      );
+    } catch (err) {
+      use(null);
+    }
+  }
 
   /* ------------------------------------------------------------------ *
    * Physics world
@@ -840,6 +902,7 @@
     sun.intensity = theme.sunIntensity;
     ambient.intensity = theme.decor === 'city' ? 0.15 : 0.3;
     renderer.toneMappingExposure = theme.exposure;
+    applyEnvironment(theme);
 
     var data = buildPath(trackId);
     pathData = data;
@@ -933,6 +996,45 @@
     return wheel;
   }
 
+  /* A real silhouette instead of stacked boxes: the side profile of a coupe is
+     extruded across the car's width and bevelled, which gives the rounded
+     shoulder line that reads as a car body. */
+  var BODY_PROFILE = [
+    [0.50, 0.10], [0.50, 0.34], [0.42, 0.46], [0.28, 0.52], [0.10, 0.56],
+    [-0.02, 0.94], [-0.26, 1.00], [-0.42, 0.78], [-0.50, 0.62], [-0.50, 0.30],
+    [-0.46, 0.10]
+  ];
+
+  var GLASS_PROFILE = [
+    [0.09, 0.58], [-0.02, 0.93], [-0.25, 0.99], [-0.40, 0.79], [-0.28, 0.62], [0.02, 0.60]
+  ];
+
+  function extrudeProfile(profile, length, height, width, bevelScale) {
+    var path = new THREE.Shape();
+    for (var i = 0; i < profile.length; i++) {
+      var X = profile[i][0] * length;
+      var Y = profile[i][1] * height;
+      if (i === 0) path.moveTo(X, Y);
+      else path.lineTo(X, Y);
+    }
+    path.closePath();
+
+    var bev = Math.min(0.1, width * (bevelScale || 0.06));
+    var depth = Math.max(0.05, width - bev * 2);
+    var geo = new THREE.ExtrudeGeometry(path, {
+      depth: depth,
+      bevelEnabled: true,
+      bevelSize: bev,
+      bevelThickness: bev,
+      bevelSegments: 2,
+      curveSegments: 4
+    });
+    geo.translate(0, 0, -depth / 2);
+    geo.rotateY(-Math.PI / 2);   // length ends up along +Z, nose forward
+    geo.computeVertexNormals();
+    return geo;
+  }
+
   function createCarMesh(cfg, shape, paintHex, finish, rimStyle) {
     var group = new THREE.Group();
     var half = shape.half;
@@ -952,30 +1054,24 @@
     var dark = new THREE.MeshStandardMaterial({ color: 0x12151b, roughness: 0.75, metalness: 0.35 });
     var chrome = new THREE.MeshStandardMaterial({ color: 0xcfd6de, metalness: 1.0, roughness: 0.15 });
 
-    /* main body, tapered towards the roof */
-    var bodyGeo = taperBox(new THREE.BoxGeometry(half[0] * 2, half[1] * 2, half[2] * 2), 0.9, 0.97);
+    /* sculpted body shell */
+    var length = half[2] * 2;
+    var height = Math.max(shape.roofY * 1.28, half[1] * 2.5);
+    var width = half[0] * 2;
+
+    var bodyGeo = extrudeProfile(BODY_PROFILE, length, height, width, 0.055);
     var body = new THREE.Mesh(bodyGeo, paint);
     body.castShadow = true;
     body.receiveShadow = true;
+    body.position.y = -half[1];
     group.add(body);
 
-    /* cabin */
-    var cabinGeo = taperBox(
-      new THREE.BoxGeometry(shape.cabin[0] * 2, shape.cabin[1] * 2, shape.cabin[2] * 2),
-      0.82, 0.7
-    );
-    var cabin = new THREE.Mesh(cabinGeo, glass);
-    cabin.position.set(0, shape.roofY * 0.78, shape.cabinZ);
+    /* glass canopy, slightly narrower and inset */
+    var glassGeo = extrudeProfile(GLASS_PROFILE, length * 0.98, height * 1.012, width * 1.015, 0.04);
+    var cabin = new THREE.Mesh(glassGeo, glass);
     cabin.castShadow = true;
+    cabin.position.y = -half[1] + 0.004;
     group.add(cabin);
-
-    /* roof plate */
-    var roof = new THREE.Mesh(
-      new THREE.BoxGeometry(shape.cabin[0] * 1.5, 0.05, shape.cabin[2] * 1.1),
-      paint
-    );
-    roof.position.set(0, shape.roofY * 0.78 + shape.cabin[1] * 0.98, shape.cabinZ);
-    group.add(roof);
 
     /* fenders over the wheels */
     var fenderGeo = new THREE.BoxGeometry(0.22, 0.3, shape.wheelR * 2.5);
@@ -983,14 +1079,14 @@
       var fx = (f % 2 === 0 ? 1 : -1) * (half[0] + 0.02);
       var fz = (f < 2 ? 1 : -1) * (half[2] - 0.55);
       var fender = new THREE.Mesh(fenderGeo, paint);
-      fender.position.set(fx, -half[1] * 0.35, fz);
+      fender.position.set(fx, -half[1] + height * 0.26, fz);
       fender.castShadow = true;
       group.add(fender);
     }
 
     /* side skirt */
-    var skirt = new THREE.Mesh(new THREE.BoxGeometry(half[0] * 2.02, 0.1, half[2] * 1.5), dark);
-    skirt.position.set(0, -half[1] * 0.85, 0);
+    var skirt = new THREE.Mesh(new THREE.BoxGeometry(half[0] * 2.02, 0.1, half[2] * 1.45), dark);
+    skirt.position.set(0, -half[1] + height * 0.16, 0);
     group.add(skirt);
 
     /* headlights and tail lights */
@@ -1003,12 +1099,12 @@
 
     for (var l = 0; l < 2; l++) {
       var lx = (l === 0 ? 1 : -1) * half[0] * 0.55;
-      var head = new THREE.Mesh(new THREE.BoxGeometry(half[0] * 0.5, 0.16, 0.1), lightMat);
-      head.position.set(lx, half[1] * 0.1, half[2] * 0.99);
+      var head = new THREE.Mesh(new THREE.BoxGeometry(half[0] * 0.46, 0.11, 0.09), lightMat);
+      head.position.set(lx, -half[1] + height * 0.30, half[2] * 0.99);
       group.add(head);
 
-      var tail = new THREE.Mesh(new THREE.BoxGeometry(half[0] * 0.55, 0.14, 0.08), tailMat);
-      tail.position.set(lx, half[1] * 0.15, -half[2] * 0.99);
+      var tail = new THREE.Mesh(new THREE.BoxGeometry(half[0] * 0.5, 0.1, 0.08), tailMat);
+      tail.position.set(lx, -half[1] + height * 0.55, -half[2] * 0.99);
       group.add(tail);
     }
 
@@ -1016,24 +1112,25 @@
     for (var mi = 0; mi < 2; mi++) {
       var mx = (mi === 0 ? 1 : -1) * (half[0] + 0.12);
       var mirror = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.1, 0.14), dark);
-      mirror.position.set(mx, shape.roofY * 0.55, shape.cabinZ + 0.55);
+      mirror.position.set(mx, -half[1] + height * 0.62, shape.cabinZ + 0.55);
       group.add(mirror);
     }
 
     /* wing */
     if (shape.wing) {
-      var wing = new THREE.Mesh(new THREE.BoxGeometry(half[0] * 1.85, 0.07, 0.45), dark);
-      wing.position.set(0, half[1] + 0.3, -half[2] + 0.3);
+      var wingY = -half[1] + height * 0.86;
+      var wing = new THREE.Mesh(new THREE.BoxGeometry(half[0] * 1.85, 0.07, 0.42), dark);
+      wing.position.set(0, wingY, -half[2] + 0.3);
       wing.castShadow = true;
       group.add(wing);
 
       for (var w2 = 0; w2 < 2; w2++) {
-        var plate = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.22, 0.5), dark);
-        plate.position.set((w2 === 0 ? 1 : -1) * half[0] * 0.92, half[1] + 0.3, -half[2] + 0.3);
+        var plate = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.2, 0.46), dark);
+        plate.position.set((w2 === 0 ? 1 : -1) * half[0] * 0.92, wingY, -half[2] + 0.3);
         group.add(plate);
 
-        var stalk = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.3, 0.07), dark);
-        stalk.position.set((w2 === 0 ? 1 : -1) * half[0] * 0.5, half[1] + 0.15, -half[2] + 0.3);
+        var stalk = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.26, 0.07), dark);
+        stalk.position.set((w2 === 0 ? 1 : -1) * half[0] * 0.5, wingY - 0.14, -half[2] + 0.3);
         group.add(stalk);
       }
     }
@@ -1043,7 +1140,7 @@
       var pipeGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.16, 8);
       pipeGeo.rotateX(Math.PI / 2);
       var pipe = new THREE.Mesh(pipeGeo, chrome);
-      pipe.position.set((ex === 0 ? 1 : -1) * half[0] * 0.45, -half[1] * 0.6, -half[2] * 1.01);
+      pipe.position.set((ex === 0 ? 1 : -1) * half[0] * 0.45, -half[1] + height * 0.14, -half[2] * 1.01);
       group.add(pipe);
     }
 

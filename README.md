@@ -73,10 +73,12 @@ cuts rear lateral grip for drifting. The HUD — position, lap, lap time, best
 lap, minimap, digital speed, gear and an RPM bar — can be hidden for a clean
 cinematic view.
 
-Rendering notes: gradient sky dome, ACES tone mapping, a procedural
-environment map for the metallic paint, canvas-generated asphalt / grass / sand
-and window textures, guardrails with posts, instanced trees and rocks, and a
-shadow frustum that follows the car.
+Rendering notes: a real equirectangular sky and reflection probe per track
+(tone-mapped from CC0 HDRIs, embedded as data URIs so the WebView never makes an
+XHR), ACES tone mapping, image-based lighting on the PBR paint, canvas-generated
+asphalt / grass / sand and window textures, a car body extruded from a coupe
+side profile, guardrails with posts, instanced trees and rocks, and a shadow
+frustum that follows the car.
 
 ## Branding
 
