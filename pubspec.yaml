@@ -1,15 +1,17 @@
-name: new_project
-description: "3D Flutter game (landscape) — empty scaffold, ready for the PRD build."
+name: aeropulse_horizon_drift
+description: "AeroPulse: Horizon Drift — a 3D arcade racing game. Flutter UI (garage, HUD, controls) with a Three.js + Cannon.js physics scene inside a WebView."
 publish_to: 'none'
-version: 0.1.0+1
+version: 1.0.0+1
 
 environment:
-  sdk: '>=3.4.0 <4.0.0'
+  sdk: '>=3.6.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
+  provider: ^6.1.2
+  webview_flutter: ^4.7.0
 
 dev_dependencies:
   flutter_test:
@@ -18,3 +20,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/game/
