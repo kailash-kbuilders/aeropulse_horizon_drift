@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -8,17 +9,21 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../state/game_state.dart';
 import '../widgets/glass_panel.dart';
 import '../widgets/hold_button.dart';
-import '../widgets/speedometer.dart';
+import '../widgets/minimap.dart';
+import '../widgets/pedal_button.dart';
+import '../widgets/speed_cluster.dart';
+import '../widgets/steering_wheel.dart';
 
 /// The race screen.
 ///
-/// Flutter owns this whole overlay: the HUD, the controls, the pause menu and
-/// the results sheet. The 3D scene and all physics live in the WebView behind
-/// it, and the two talk over the `AeroPulse` JavaScript channel.
+/// Flutter owns this whole overlay — HUD, minimap, controls, pause menu and
+/// results. The 3D scene and all physics live in the WebView behind it, and the
+/// two talk over the `AeroPulse` JavaScript channel.
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
 
   static const int totalLaps = 3;
+  static const int rivals = 5;
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -37,14 +42,22 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   String? _error;
 
   int _speed = 0;
-  String _gear = 'N';
+  int _gear = 0;
+  int _rpm = 900;
   int _lap = 1;
   int _laps = GameScreen.totalLaps;
+  int _position = 1;
+  int _total = GameScreen.rivals + 1;
   int _checkpoint = 0;
   int _checkpointTotal = 3;
   double _lapTime = 0;
   double _bestLap = 0;
   bool _drifting = false;
+
+  List<Offset> _trackPath = const <Offset>[];
+  Offset _carPos = Offset.zero;
+  Offset? _lastCarPos;
+  double _heading = 0;
 
   String? _toast;
   Timer? _toastTimer;
@@ -54,6 +67,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   bool _gas = false;
   bool _brake = false;
   bool _handbrake = false;
+  double _wheelSteer = 0;
 
   @override
   void initState() {
@@ -77,9 +91,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-      if (!_paused && !_finished) {
-        _setPaused(true);
-      }
+      if (!_paused && !_finished) _setPaused(true);
     }
   }
 
@@ -102,6 +114,9 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         _engineReady = true;
         _controller.runJavaScript('window.__AP.start();');
         break;
+      case 'track':
+        _handleTrack(data);
+        break;
       case 'countdown':
         final int value = (data['value'] as num?)?.toInt() ?? 0;
         setState(() {
@@ -110,15 +125,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         });
         break;
       case 'hud':
-        setState(() {
-          _speed = (data['speed'] as num?)?.toInt() ?? 0;
-          _lap = (data['lap'] as num?)?.toInt() ?? _lap;
-          _laps = (data['laps'] as num?)?.toInt() ?? _laps;
-          _lapTime = (data['lapTime'] as num?)?.toDouble() ?? 0;
-          _bestLap = (data['bestLap'] as num?)?.toDouble() ?? 0;
-          _drifting = (data['drifting'] as num?)?.toInt() == 1;
-          _gear = (data['gear'] as String?) ?? 'N';
-        });
+        _handleHud(data);
         break;
       case 'checkpoint':
         final int cp = (data['cp'] as num?)?.toInt() ?? 0;
@@ -149,19 +156,62 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     }
   }
 
+  void _handleTrack(Map<String, dynamic> data) {
+    final List<dynamic> flat = (data['path'] as List<dynamic>?) ?? <dynamic>[];
+    final List<Offset> pts = <Offset>[];
+    for (int i = 0; i + 1 < flat.length; i += 2) {
+      pts.add(Offset(
+        (flat[i] as num).toDouble(),
+        (flat[i + 1] as num).toDouble(),
+      ));
+    }
+    setState(() => _trackPath = pts);
+  }
+
+  void _handleHud(Map<String, dynamic> data) {
+    final Offset next = Offset(
+      (data['x'] as num?)?.toDouble() ?? _carPos.dx,
+      (data['z'] as num?)?.toDouble() ?? _carPos.dy,
+    );
+
+    double heading = _heading;
+    final Offset? last = _lastCarPos;
+    if (last != null) {
+      final Offset d = next - last;
+      if (d.distance > 0.25) {
+        heading = math.atan2(d.dx, -d.dy);
+      }
+    }
+
+    setState(() {
+      _speed = (data['speed'] as num?)?.toInt() ?? 0;
+      _gear = (data['gear'] as num?)?.toInt() ?? 0;
+      _rpm = (data['rpm'] as num?)?.toInt() ?? 900;
+      _lap = (data['lap'] as num?)?.toInt() ?? _lap;
+      _laps = (data['laps'] as num?)?.toInt() ?? _laps;
+      _position = (data['pos'] as num?)?.toInt() ?? _position;
+      _total = (data['total'] as num?)?.toInt() ?? _total;
+      _lapTime = (data['lapTime'] as num?)?.toDouble() ?? 0;
+      _bestLap = (data['bestLap'] as num?)?.toDouble() ?? 0;
+      _drifting = (data['drifting'] as num?)?.toInt() == 1;
+      _carPos = next;
+      _lastCarPos = next;
+      _heading = heading;
+    });
+  }
+
   void _sendSetup() {
     final GameState gs = context.read<GameState>();
-    final Map<String, dynamic> car = gs.selectedCar.toEngineJson(
+    final String carJson = jsonEncode(gs.selectedCar.toEngineJson(
       paint: gs.paint,
       finish: gs.finish,
       rim: gs.rim,
-    );
-    final String carJson = jsonEncode(car);
+    ));
     final String trackJson = jsonEncode(gs.track.id);
 
     _controller.runJavaScript(
       'window.__AP.setLaps(${GameScreen.totalLaps});'
-      'window.__AP.setup($carJson, $trackJson);',
+      'window.__AP.setup($carJson, $trackJson, {opponents: ${GameScreen.rivals}});',
     );
   }
 
@@ -169,11 +219,14 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
     if (!_engineReady) return;
     final int throttle = _gas ? 1 : 0;
     final int brake = _brake ? 1 : 0;
-    final int steer = (_right ? 1 : 0) - (_left ? 1 : 0);
+    final double steer = _wheelSteer != 0
+        ? _wheelSteer
+        : ((_right ? 1 : 0) - (_left ? 1 : 0)).toDouble();
     final int handbrake = _handbrake ? 1 : 0;
 
     _controller.runJavaScript(
-      'window.__AP.setInput({throttle:$throttle,brake:$brake,steer:$steer,handbrake:$handbrake});',
+      'window.__AP.setInput({throttle:$throttle,brake:$brake,'
+      'steer:${steer.toStringAsFixed(3)},handbrake:$handbrake});',
     );
   }
 
@@ -185,6 +238,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       _left = false;
       _right = false;
       _handbrake = false;
+      _wheelSteer = 0;
     });
     _sendInput();
     _controller.runJavaScript(
@@ -199,7 +253,9 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
       _lap = 1;
       _checkpoint = 0;
       _speed = 0;
+      _rpm = 900;
       _lapTime = 0;
+      _position = 1;
       _countdownRunning = true;
       _countdown = 3;
     });
@@ -217,6 +273,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   void _showResults(Map<String, dynamic> data) {
     final double totalTime = (data['totalTime'] as num?)?.toDouble() ?? 0;
     final double bestLap = (data['bestLap'] as num?)?.toDouble() ?? 0;
+    final int pos = (data['pos'] as num?)?.toInt() ?? _position;
+    final int total = (data['total'] as num?)?.toInt() ?? _total;
 
     if (bestLap > 0) {
       context.read<GameState>().recordLap(
@@ -235,9 +293,9 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              const Text(
-                'RACE COMPLETE',
-                style: TextStyle(
+              Text(
+                pos == 1 ? 'P1 — RACE WON' : 'FINISHED  P$pos / $total',
+                style: const TextStyle(
                   fontSize: 11,
                   letterSpacing: 4,
                   fontWeight: FontWeight.w800,
@@ -245,6 +303,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                 ),
               ),
               const SizedBox(height: 16),
+              _ResultRow(label: 'Position', value: '$pos / $total'),
+              const SizedBox(height: 8),
               _ResultRow(label: 'Total time', value: _fmt(totalTime)),
               const SizedBox(height: 8),
               _ResultRow(label: 'Best lap', value: _fmt(bestLap)),
@@ -252,15 +312,23 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
-                  _SheetButton(label: 'RESTART', filled: true, onTap: () {
-                    Navigator.of(ctx).pop();
-                    _restart();
-                  }),
+                  _SheetButton(
+                    label: 'RESTART',
+                    filled: true,
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      _restart();
+                    },
+                  ),
                   const SizedBox(width: 10),
-                  _SheetButton(label: 'HOME', filled: false, onTap: () {
-                    Navigator.of(ctx).pop();
-                    Navigator.of(context).popUntil((Route<dynamic> r) => r.isFirst);
-                  }),
+                  _SheetButton(
+                    label: 'HOME',
+                    filled: false,
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      Navigator.of(context).popUntil((Route<dynamic> r) => r.isFirst);
+                    },
+                  ),
                 ],
               ),
             ],
@@ -284,6 +352,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final GameState gs = context.watch<GameState>();
     final Color accent = gs.track.accent;
+    final bool showControls = !_paused && !_finished && !_countdownRunning && _hudVisible;
 
     return PopScope(
       canPop: false,
@@ -294,72 +363,68 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
         backgroundColor: const Color(0xFF05070D),
         body: Stack(
           children: <Widget>[
-            Positioned.fill(
-              child: WebViewWidget(controller: _controller),
-            ),
+            Positioned.fill(child: WebViewWidget(controller: _controller)),
 
-            // top-left: lap / time panel
+            /* ---------- top left: position / lap / time ---------- */
             if (_hudVisible)
               Positioned(
-                top: 12,
-                left: 12,
+                top: 10,
+                left: 10,
                 child: GlassPanel(
-                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-                  radius: 16,
+                  padding: const EdgeInsets.fromLTRB(14, 10, 16, 10),
+                  radius: 14,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Row(
-                        children: <Widget>[
-                          Text(
-                            'LAP $_lap/$_laps',
-                            style: TextStyle(
-                              fontSize: 12,
-                              letterSpacing: 2,
-                              fontWeight: FontWeight.w800,
-                              color: accent,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Text(
-                            'CP $_checkpoint/$_checkpointTotal',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              letterSpacing: 1.6,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0x88FFFFFF),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _fmt(_lapTime),
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          height: 1.1,
-                          color: Colors.white,
-                          fontFeatures: <FontFeature>[FontFeature.tabularFigures()],
-                        ),
-                      ),
-                      Text(
-                        'BEST ${_fmt(_bestLap)}',
-                        style: const TextStyle(
-                          fontSize: 9.5,
-                          letterSpacing: 1.4,
-                          color: Color(0x7AFFFFFF),
-                        ),
-                      ),
+                      _HudLine(label: 'POS', value: '$_position / $_total', accent: accent),
+                      _HudLine(label: 'LAP', value: '$_lap / $_laps', accent: accent),
+                      _HudLine(label: 'TIME', value: _fmt(_lapTime), accent: accent),
+                      _HudLine(label: 'BEST', value: _fmt(_bestLap), accent: accent),
                     ],
                   ),
                 ),
               ),
 
-            // top-right: pause + hud toggle
+            /* ---------- top centre: minimap ---------- */
+            if (_hudVisible)
+              Positioned(
+                top: 10,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: GlassPanel(
+                    padding: const EdgeInsets.all(6),
+                    radius: 14,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Minimap(
+                          path: _trackPath,
+                          car: _carPos,
+                          heading: _heading,
+                          accent: accent,
+                          size: const Size(178, 96),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'CHECKPOINT $_checkpoint / $_checkpointTotal',
+                          style: TextStyle(
+                            fontSize: 8,
+                            letterSpacing: 1.6,
+                            fontWeight: FontWeight.w700,
+                            color: accent.withValues(alpha: 0.75),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+            /* ---------- top right: hud toggle + pause ---------- */
             Positioned(
-              top: 12,
-              right: 12,
+              top: 10,
+              right: 10,
               child: Row(
                 children: <Widget>[
                   _IconGlass(
@@ -367,23 +432,20 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                     onTap: () => setState(() => _hudVisible = !_hudVisible),
                   ),
                   const SizedBox(width: 8),
-                  _IconGlass(
-                    icon: Icons.pause_rounded,
-                    onTap: () => _setPaused(true),
-                  ),
+                  _IconGlass(icon: Icons.pause_rounded, onTap: () => _setPaused(true)),
                 ],
               ),
             ),
 
-            // drifting badge
+            /* ---------- drift badge ---------- */
             if (_hudVisible && _drifting && !_paused)
               Positioned(
-                top: 96,
+                top: 122,
                 left: 0,
                 right: 0,
                 child: Center(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0x33FF9D3C),
                       borderRadius: BorderRadius.circular(20),
@@ -392,7 +454,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                     child: const Text(
                       'DRIFT',
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 9.5,
                         letterSpacing: 4,
                         fontWeight: FontWeight.w800,
                         color: Color(0xFFFF9D3C),
@@ -402,129 +464,133 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                 ),
               ),
 
-            // controls
-            if (!_paused && !_finished && !_countdownRunning)
+            /* ---------- controls ---------- */
+            if (showControls)
               Positioned.fill(
-                child: IgnorePointer(
-                  ignoring: !_hudVisible,
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 200),
-                    opacity: _hudVisible ? 1 : 0,
-                    child: Stack(
-                      children: <Widget>[
-                        Positioned(
-                          left: 22,
-                          bottom: 22,
-                          child: Row(
-                            children: <Widget>[
-                              HoldButton(
-                                icon: Icons.keyboard_arrow_left_rounded,
-                                active: _left,
-                                size: 76,
-                                accent: accent,
-                                onDown: () {
-                                  _left = true;
-                                  _sendInput();
-                                },
-                                onUp: () {
-                                  _left = false;
-                                  _sendInput();
-                                },
-                              ),
-                              const SizedBox(width: 12),
-                              HoldButton(
-                                icon: Icons.keyboard_arrow_right_rounded,
-                                active: _right,
-                                size: 76,
-                                accent: accent,
-                                onDown: () {
-                                  _right = true;
-                                  _sendInput();
-                                },
-                                onUp: () {
-                                  _right = false;
-                                  _sendInput();
-                                },
-                              ),
-                            ],
+                child: Stack(
+                  children: <Widget>[
+                    Positioned(
+                      left: 12,
+                      bottom: 10,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: <Widget>[
+                          HoldButton(
+                            icon: Icons.keyboard_arrow_left_rounded,
+                            active: _left,
+                            size: 54,
+                            accent: accent,
+                            onDown: () {
+                              _left = true;
+                              _sendInput();
+                            },
+                            onUp: () {
+                              _left = false;
+                              _sendInput();
+                            },
                           ),
-                        ),
-                        Positioned(
-                          right: 22,
-                          bottom: 22,
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: <Widget>[
-                              HoldButton(
-                                icon: Icons.local_parking_rounded,
-                                label: 'DRIFT',
-                                active: _handbrake,
-                                size: 62,
-                                accent: const Color(0xFFFF9D3C),
-                                onDown: () {
-                                  _handbrake = true;
-                                  _sendInput();
-                                },
-                                onUp: () {
-                                  _handbrake = false;
-                                  _sendInput();
-                                },
-                              ),
-                              const SizedBox(width: 12),
-                              HoldButton(
-                                icon: Icons.remove_rounded,
-                                label: 'BRAKE',
-                                active: _brake,
-                                size: 68,
-                                accent: const Color(0xFFFF3D68),
-                                onDown: () {
-                                  _brake = true;
-                                  _sendInput();
-                                },
-                                onUp: () {
-                                  _brake = false;
-                                  _sendInput();
-                                },
-                              ),
-                              const SizedBox(width: 12),
-                              HoldButton(
-                                icon: Icons.add_rounded,
-                                label: 'GAS',
-                                active: _gas,
-                                size: 84,
-                                accent: const Color(0xFF39FF88),
-                                onDown: () {
-                                  _gas = true;
-                                  _sendInput();
-                                },
-                                onUp: () {
-                                  _gas = false;
-                                  _sendInput();
-                                },
-                              ),
-                            ],
+                          const SizedBox(width: 8),
+                          SteeringWheel(
+                            size: 104,
+                            accent: accent,
+                            onChanged: (double v) {
+                              _wheelSteer = v;
+                              _sendInput();
+                            },
                           ),
-                        ),
-                        Positioned(
-                          bottom: 6,
-                          left: 0,
-                          right: 0,
-                          child: Center(
-                            child: Speedometer(
-                              speed: _speed,
-                              gear: _gear,
-                              drifting: _drifting,
-                              size: 158,
-                            ),
+                          const SizedBox(width: 8),
+                          HoldButton(
+                            icon: Icons.keyboard_arrow_right_rounded,
+                            active: _right,
+                            size: 54,
+                            accent: accent,
+                            onDown: () {
+                              _right = true;
+                              _sendInput();
+                            },
+                            onUp: () {
+                              _right = false;
+                              _sendInput();
+                            },
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
+                    Positioned(
+                      right: 12,
+                      bottom: 10,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: <Widget>[
+                          HoldButton(
+                            icon: Icons.local_parking_rounded,
+                            label: 'DRIFT',
+                            active: _handbrake,
+                            size: 54,
+                            accent: const Color(0xFFFF9D3C),
+                            onDown: () {
+                              _handbrake = true;
+                              _sendInput();
+                            },
+                            onUp: () {
+                              _handbrake = false;
+                              _sendInput();
+                            },
+                          ),
+                          const SizedBox(width: 10),
+                          PedalButton(
+                            label: 'BRAKE',
+                            width: 66,
+                            height: 104,
+                            accent: const Color(0xFFFF3D68),
+                            active: _brake,
+                            onDown: () {
+                              _brake = true;
+                              _sendInput();
+                            },
+                            onUp: () {
+                              _brake = false;
+                              _sendInput();
+                            },
+                          ),
+                          const SizedBox(width: 10),
+                          PedalButton(
+                            label: 'GAS',
+                            width: 74,
+                            height: 116,
+                            accent: const Color(0xFF39FF88),
+                            active: _gas,
+                            onDown: () {
+                              _gas = true;
+                              _sendInput();
+                            },
+                            onUp: () {
+                              _gas = false;
+                              _sendInput();
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 8,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: SpeedCluster(
+                          speed: _speed,
+                          gear: _gear,
+                          rpm: _rpm,
+                          drifting: _drifting,
+                          width: 186,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
 
-            // countdown
+            /* ---------- countdown ---------- */
             if (_countdownRunning && !_paused)
               Positioned.fill(
                 child: IgnorePointer(
@@ -532,9 +598,9 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                     child: Text(
                       _countdown > 0 ? '$_countdown' : 'GO',
                       style: TextStyle(
-                        fontSize: 130,
+                        fontSize: 120,
                         fontWeight: FontWeight.w900,
-                        color: Colors.white.withValues(alpha: 0.92),
+                        color: Colors.white.withValues(alpha: 0.94),
                         shadows: <Shadow>[
                           Shadow(color: accent.withValues(alpha: 0.9), blurRadius: 40),
                         ],
@@ -544,15 +610,15 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                 ),
               ),
 
-            // toast
+            /* ---------- toast ---------- */
             if (_toast != null)
               Positioned(
-                top: 74,
+                top: 128,
                 left: 0,
                 right: 0,
                 child: Center(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                     decoration: BoxDecoration(
                       color: const Color(0xCC0A1119),
                       borderRadius: BorderRadius.circular(20),
@@ -561,7 +627,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                     child: Text(
                       _toast!,
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 9.5,
                         letterSpacing: 3,
                         fontWeight: FontWeight.w800,
                         color: accent,
@@ -571,7 +637,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                 ),
               ),
 
-            // error banner
+            /* ---------- error ---------- */
             if (_error != null)
               Positioned(
                 left: 20,
@@ -591,7 +657,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                 ),
               ),
 
-            // pause menu
+            /* ---------- pause menu ---------- */
             if (_paused)
               Positioned.fill(
                 child: Container(
@@ -599,7 +665,7 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                   child: Center(
                     child: GlassPanel(
                       tint: const Color(0xE60A1119),
-                      padding: const EdgeInsets.all(26),
+                      padding: const EdgeInsets.all(24),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
@@ -612,12 +678,8 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
                               color: Colors.white,
                             ),
                           ),
-                          const SizedBox(height: 20),
-                          _SheetButton(
-                            label: 'RESUME',
-                            filled: true,
-                            onTap: () => _setPaused(false),
-                          ),
+                          const SizedBox(height: 18),
+                          _SheetButton(label: 'RESUME', filled: true, onTap: () => _setPaused(false)),
                           const SizedBox(height: 10),
                           _SheetButton(label: 'RESTART', filled: false, onTap: _restart),
                           const SizedBox(height: 10),
@@ -641,6 +703,46 @@ class _GameScreenState extends State<GameScreen> with WidgetsBindingObserver {
   }
 }
 
+class _HudLine extends StatelessWidget {
+  const _HudLine({required this.label, required this.value, required this.accent});
+
+  final String label;
+  final String value;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 1),
+      child: Row(
+        children: <Widget>[
+          SizedBox(
+            width: 40,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 9,
+                letterSpacing: 1.6,
+                fontWeight: FontWeight.w700,
+                color: accent.withValues(alpha: 0.9),
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              fontFeatures: <FontFeature>[FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _IconGlass extends StatelessWidget {
   const _IconGlass({required this.icon, required this.onTap});
 
@@ -652,14 +754,14 @@ class _IconGlass extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 40,
-        height: 40,
+        width: 38,
+        height: 38,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: const Color(0x660A1119),
           border: Border.all(color: const Color(0x33FFFFFF)),
         ),
-        child: Icon(icon, size: 18, color: Colors.white),
+        child: Icon(icon, size: 17, color: Colors.white),
       ),
     );
   }

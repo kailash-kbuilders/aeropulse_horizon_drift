@@ -26,6 +26,13 @@ const List<TrackModel> kTracks = <TrackModel>[
     icon: Icons.location_city,
   ),
   TrackModel(
+    id: 'alpine_pass',
+    name: 'Alpine Pass',
+    description: 'Mountain road, tree line and guardrails. Fast sweepers, big views.',
+    accent: Color(0xFF7FD4A0),
+    icon: Icons.forest,
+  ),
+  TrackModel(
     id: 'canyon_dust',
     name: 'Canyon Dust',
     description: 'Desert loop with dirt mounds. Long slides, low grip.',

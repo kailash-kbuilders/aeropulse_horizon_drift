@@ -38,6 +38,14 @@ Flutter and the engine talk over a single JavaScript channel named `AeroPulse`:
 
 Nothing is loaded from a CDN at runtime — all three JS files ship inside the app.
 
+## The tracks
+
+| Track | Look | Surface |
+|---|---|---|
+| Neon City Circuit | night city, glowing barriers, lit windows | asphalt |
+| Canyon Dust | desert, rock field, dirt mounds | sand |
+| Alpine Pass | mountain road, tree line, guardrails, distant peaks | asphalt |
+
 ## The cars
 
 | Car | Class | Mass | Engine force | Tyre grip | Suspension |
@@ -51,11 +59,24 @@ Every model is generated from primitives at runtime (chassis block, cabin, wing,
 skirt, four wheels positioned from the suspension raycasts), so there are no
 heavy GLTF files to load or fail.
 
+## Race
+
+Five AI rivals follow the racing line at different speeds and lanes, so the HUD
+can show a live **position** (P3/6) next to the lap counter. Progress is
+measured along the track centreline, which is also what drives the minimap.
+
 ## Controls
 
-Landscape only. On-screen steering left/right, gas, brake/reverse, and a
-handbrake that cuts rear lateral grip for drifting. The HUD can be hidden for a
-clean cinematic view.
+Landscape only. A draggable steering wheel (it springs back to centre) with
+left/right buttons beside it, pedal-shaped gas and brake, and a handbrake that
+cuts rear lateral grip for drifting. The HUD — position, lap, lap time, best
+lap, minimap, digital speed, gear and an RPM bar — can be hidden for a clean
+cinematic view.
+
+Rendering notes: gradient sky dome, ACES tone mapping, a procedural
+environment map for the metallic paint, canvas-generated asphalt / grass / sand
+and window textures, guardrails with posts, instanced trees and rocks, and a
+shadow frustum that follows the car.
 
 ## Branding
 
@@ -86,9 +107,12 @@ flutter run
 
 ## What is not in this build
 
-- No AI opponents, so there is no race position tracker — progress is shown as
-  checkpoints cleared per lap instead.
-- Steering is on-screen buttons only; the tilt-steering option was not built.
-- Canyon Dust gets its elevation from dirt mounds on the track rather than
-  sculpted terrain.
+- The rivals are kinematic: they follow the racing line, they do not collide
+  with the player and they are not simulated with Cannon.js.
+- The road is flat. Elevation is suggested with dirt mounds (Canyon) and
+  hillside scenery (Alpine), not real terrain height.
+- Visuals are stylised low-poly with procedural textures — not photoreal. A
+  reference render with ray-traced cars and foliage needs GLTF assets and a
+  real renderer, which is a different pipeline from this WebView scene.
+- Tilt steering was not built.
 - Times are not persisted between launches.
