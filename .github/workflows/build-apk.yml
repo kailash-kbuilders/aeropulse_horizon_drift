@@ -28,58 +28,27 @@ jobs:
           channel: stable
           cache: true
 
-      # Guard against a scaffold that has only Dart files. Build the android/
-      # folder inside a throwaway project and copy just that folder in, so our
-      # own lib/ and pubspec.yaml can never be overwritten.
+      # The repo ships Dart + assets only. Build the android/ folder inside a
+      # throwaway project and copy just that folder in, so lib/ and pubspec.yaml
+      # can never be overwritten by flutter create.
       - name: Generate android folder if missing
         run: |
           if [ ! -d "android" ]; then
             TMP="$(mktemp -d)"
-            flutter create "$TMP/seed" --platforms=android --project-name aeropulse_horizon_drift
+            flutter create "$TMP/seed" --platforms=android --project-name cravecart
             cp -r "$TMP/seed/android" ./android
             rm -rf "$TMP"
           fi
 
-      # Launcher icon + splash screen come from branding/*.png, generated here
-      # because android/ is not committed.
-      - name: Apply launcher icon and splash
+      # Launcher icon comes from assets/icon/app_icon.png.
+      - name: Apply launcher icon
         run: |
           python3 -m pip install --quiet --disable-pip-version-check pillow
           python3 tool/apply_branding.py
 
-      # url_launcher needs these intents declared so canLaunchUrl() works on
-      # Android 11+ (WhatsApp, dialer, browser, email).
-      - name: Ensure Android intent queries (url_launcher)
-        run: |
-          python3 - <<'PY'
-          import pathlib
-          p = pathlib.Path("android/app/src/main/AndroidManifest.xml")
-          if p.exists():
-              s = p.read_text()
-              if "<queries>" not in s:
-                  queries = (
-                      '    <queries>\n'
-                      '        <intent><action android:name="android.intent.action.VIEW" />'
-                      '<data android:scheme="https" /></intent>\n'
-                      '        <intent><action android:name="android.intent.action.VIEW" />'
-                      '<data android:scheme="whatsapp" /></intent>\n'
-                      '        <intent><action android:name="android.intent.action.DIAL" />'
-                      '<data android:scheme="tel" /></intent>\n'
-                      '        <intent><action android:name="android.intent.action.SENDTO" />'
-                      '<data android:scheme="mailto" /></intent>\n'
-                      '    </queries>\n'
-                  )
-                  s = s.replace("</manifest>", queries + "</manifest>")
-                  p.write_text(s)
-          PY
-
-      # Give the app a repo-specific applicationId / namespace.
-      #
-      # NOTE: we deliberately DO NOT touch compileSdk here. The Flutter
-      # template already sets `compileSdk = flutter.compileSdkVersion`, which is
-      # 36 on current stable, and the plugins (url_launcher_android, androidx
-      # browser/core) compile against that same value. Pinning it to a lower
-      # number is exactly what makes the "AAR metadata" check fail.
+      # Give the app a repo-specific applicationId / namespace and label.
+      # compileSdk is deliberately left alone: the Flutter template sets it from
+      # flutter.compileSdkVersion, which is what the plugins compile against.
       - name: Configure Android project
         run: |
           python3 - <<'PY'
@@ -92,44 +61,21 @@ jobs:
               if not path.exists():
                   continue
               text = path.read_text()
-
-              text = re.sub(
-                  r'(applicationId[ \t]*=?[ \t]*)"[^"]*"',
-                  lambda m: m.group(1) + '"' + app_id + '"',
-                  text,
-              )
-              text = re.sub(
-                  r'(namespace[ \t]*=?[ \t]*)"[^"]*"',
-                  lambda m: m.group(1) + '"' + app_id + '"',
-                  text,
-              )
-
+              text = re.sub(r'(applicationId[ \t]*=?[ \t]*)"[^"]*"',
+                            lambda m: m.group(1) + '"' + app_id + '"', text)
+              text = re.sub(r'(namespace[ \t]*=?[ \t]*)"[^"]*"',
+                            lambda m: m.group(1) + '"' + app_id + '"', text)
               path.write_text(text)
               print("configured", name, "->", app_id)
 
           manifest = pathlib.Path("android/app/src/main/AndroidManifest.xml")
           if manifest.exists():
               m = manifest.read_text()
-              m = re.sub(r'android:label="[^"]*"', 'android:label="AeroPulse"', m)
+              m = re.sub(r'android:label="[^"]*"', 'android:label="CraveCart"', m)
               manifest.write_text(m)
-              print("labelled the app as AeroPulse")
+              print("labelled the app as CraveCart")
           PY
 
-      # The game is landscape-only. Lock the activity so the very first frame
-      # is already landscape (the runtime lock in main.dart keeps it that way).
-      - name: Lock activity to landscape
-        run: |
-          python3 - <<'PY'
-          import pathlib, re
-          manifest = pathlib.Path("android/app/src/main/AndroidManifest.xml")
-          if manifest.exists():
-              m = manifest.read_text()
-              m = re.sub(r'(<activity[^>]*android:name="\.MainActivity"[^>]*)', r'\1 android:screenOrientation="landscape"', m)
-              manifest.write_text(m)
-              print("landscape lock applied")
-          PY
-
-      # Print the resolved SDK versions so a future failure is easy to read.
       - name: Show Android SDK configuration
         run: |
           grep -rnE "compileSdk|targetSdk|minSdk|ndkVersion" android/app/build.gradle* || true
@@ -147,7 +93,7 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # --no-shrink skips R8 minification, the biggest cause of release build failures.
+      # --no-shrink skips R8 minification, the biggest cause of release failures.
       - name: Build release APK
         run: flutter build apk --release --no-shrink
 
@@ -157,8 +103,8 @@ jobs:
           name: release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
 
-      # When the user asks for the APK (manual run) or a version tag is pushed,
-      # attach the APK to a GitHub Release so it is downloadable as a proper release.
+      # A manual run or a version tag also publishes the APK to a GitHub Release
+      # so it can be downloaded directly.
       - name: Publish APK to GitHub Release
         if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2

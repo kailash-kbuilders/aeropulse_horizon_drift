@@ -1,5 +1,5 @@
-name: aeropulse_horizon_drift
-description: "AeroPulse: Horizon Drift — a 3D arcade racing game. Flutter UI (garage, HUD, controls) with a Three.js + Cannon.js physics scene inside a WebView."
+name: cravecart
+description: "CraveCart — a dark, warm food delivery app. Browse categories, check offers and customise your burger before adding it to the cart."
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -10,8 +10,6 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  provider: ^6.1.2
-  webview_flutter: ^4.7.0
 
 dev_dependencies:
   flutter_test:
@@ -21,5 +19,18 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/game/
-    - assets/branding/
+    - assets/images/
+    - assets/icon/
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Poppins-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Poppins-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Poppins-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Poppins-ExtraBold.ttf
+          weight: 800

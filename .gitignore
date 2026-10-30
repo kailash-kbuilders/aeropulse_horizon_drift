@@ -1,4 +1,3 @@
-# Flutter / Dart
 .dart_tool/
 .packages
 .pub-cache/
@@ -9,20 +8,9 @@ build/
 *.iml
 .idea/
 .vscode/
-
-# Android
-android/.gradle/
-android/local.properties
-android/key.properties
-*.jks
-*.keystore
-
-# iOS
-ios/Pods/
-ios/.symlinks/
-ios/Flutter/Flutter.framework
-ios/Flutter/Flutter.podspec
-
-# Misc
-.DS_Store
-*.log
+android/
+ios/
+macos/
+windows/
+linux/
+web/

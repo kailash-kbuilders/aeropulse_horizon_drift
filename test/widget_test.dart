@@ -1,50 +1,58 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
 
-import 'package:aeropulse_horizon_drift/models/car_model.dart';
-import 'package:aeropulse_horizon_drift/screens/home_screen.dart';
-import 'package:aeropulse_horizon_drift/state/game_state.dart';
+import 'package:cravecart/main.dart';
 
 void main() {
-  testWidgets('home screen shows the title, race and garage actions',
+  // The home screen is a tall scroll view, so give the test a phone-sized
+  // surface instead of the default 800x600 window.
+  Future<void> pumpApp(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const CraveCartApp());
+    await tester.pump();
+  }
+
+  testWidgets('home screen shows the greeting and popular section',
       (WidgetTester tester) async {
-    await tester.pumpWidget(
-      ChangeNotifierProvider<GameState>(
-        create: (_) => GameState(),
-        child: const MaterialApp(home: HomeScreen()),
-      ),
-    );
+    await pumpApp(tester);
+
+    expect(find.text('Hi, Alex 👋'), findsOneWidget);
+    expect(find.text('Popular Now'), findsOneWidget);
+    expect(find.text('Search your favorite food'), findsOneWidget);
+  });
+
+  testWidgets('tapping a dish opens the detail screen',
+      (WidgetTester tester) async {
+    await pumpApp(tester);
+
+    // Scroll the carousel clear of the floating nav bar, then open a dish.
+    await tester.drag(find.byType(ListView).first, const Offset(0, -240));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Spicy Chicken Burger').first);
     await tester.pumpAndSettle();
 
-    expect(find.text('HORIZON  DRIFT'), findsOneWidget);
-    expect(find.text('RACE'), findsOneWidget);
-    expect(find.text('GARAGE'), findsOneWidget);
+    expect(find.text('Customize'), findsOneWidget);
+    expect(find.text('Add to Cart'), findsOneWidget);
   });
 
-  test('every car serialises a complete engine payload', () {
-    for (final CarModel car in kCars) {
-      final Map<String, dynamic> json = car.toEngineJson(
-        paint: const Color(0xFF22D3EE),
-        finish: 'metallic',
-        rim: 2,
-      );
-      expect(json['id'], car.id);
-      expect(json['mass'], car.mass);
-      expect(json['engineForce'], car.engineForce);
-      expect(json['color'], '#22d3ee');
-      expect(json['finish'], 'metallic');
-      expect(json['rim'], 2);
-    }
-  });
+  testWidgets('quantity and add-ons change the cart total',
+      (WidgetTester tester) async {
+    await pumpApp(tester);
 
-  test('game state tracks the selected car and track', () {
-    final GameState gs = GameState();
-    expect(gs.selectedCar.id, kCars.first.id);
-    gs.selectCar(2);
-    expect(gs.selectedCar.id, kCars[2].id);
-    gs.setRim(1);
-    expect(gs.rim, 1);
-    expect(gs.track.id, 'neon_city');
+    await tester.drag(find.byType(ListView).first, const Offset(0, -240));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Spicy Chicken Burger').first);
+    await tester.pumpAndSettle();
+
+    // 6.49 base + 0.99 cheese + 1.40 bacon = 8.88
+    expect(find.text('\$8.88'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.add_rounded).last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('\$17.76'), findsOneWidget);
   });
 }
