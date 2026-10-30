@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/menu_data.dart';
 import '../models/food_item.dart';
 import '../theme/app_theme.dart';
+import '../theme/responsive.dart';
 import '../widgets/category_strip.dart';
 import '../widgets/circle_icon_button.dart';
 import '../widgets/food_card.dart';
@@ -62,9 +63,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           backgroundColor: const Color(0xFF232329),
           behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          margin: const EdgeInsets.fromLTRB(20, 0, 20, 110),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           duration: const Duration(seconds: 2),
         ),
       );
@@ -73,6 +75,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final List<FoodItem> items = _visibleItems;
+    final double pad = context.rp(20);
+    final double cardWidth = context.rp(150);
+    final double cardHeight = context.rp(216);
 
     return Stack(
       children: <Widget>[
@@ -90,126 +95,152 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         SafeArea(
           bottom: false,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 6, 20, 120),
-            physics: const BouncingScrollPhysics(),
-            children: <Widget>[
-              Row(
-                children: <Widget>[
-                  CircleIconButton(
-                    icon: Icons.menu_rounded,
-                    onTap: () => _showSnack('Menu is on the way'),
-                  ),
-                  const Spacer(),
-                  _AvatarBadge(
-                    onTap: () => _showSnack('Hi Alex, welcome back!'),
-                  ),
-                ],
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: Responsive.maxContentWidth,
               ),
-              const SizedBox(height: 18),
-              const Text(
-                'Hi, Alex 👋',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w400,
-                  color: AppColors.textSecondary,
+              child: ListView(
+                padding: EdgeInsets.fromLTRB(
+                  pad,
+                  context.rp(6),
+                  pad,
+                  context.rp(120),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text.rich(
-                const TextSpan(
-                  children: <InlineSpan>[
-                    TextSpan(text: 'Good Food\nGood '),
-                    TextSpan(
-                      text: 'Mood!',
-                      style: TextStyle(
-                        color: AppColors.orange,
-                        fontFamily: AppTheme.fontFamily,
-                        fontWeight: FontWeight.w700,
+                physics: const BouncingScrollPhysics(),
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      CircleIconButton(
+                        icon: Icons.menu_rounded,
+                        size: context.rp(44),
+                        iconSize: context.rp(20),
+                        onTap: () => _showSnack('Menu is on the way'),
                       ),
-                    ),
-                  ],
-                ),
-                style: const TextStyle(
-                  fontSize: 32,
-                  height: 1.14,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.6,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 18),
-              SearchField(
-                controller: _searchController,
-                onChanged: (String value) => setState(() => _query = value),
-                onFilterTap: () => _showSnack('Filters coming soon'),
-              ),
-              const SizedBox(height: 18),
-              CategoryStrip(
-                selectedIndex: _selectedCategory,
-                onSelect: (int index) =>
-                    setState(() => _selectedCategory = index),
-              ),
-              const SizedBox(height: 18),
-              PromoCard(
-                  onOrder: () => _openDetail(MenuData.spicyChickenBurger)),
-              const SizedBox(height: 20),
-              Row(
-                children: <Widget>[
-                  const Text(
-                    'Popular Now',
+                      const Spacer(),
+                      _AvatarBadge(
+                        size: context.rp(44),
+                        onTap: () => _showSnack('Hi Alex, welcome back!'),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: context.rp(18)),
+                  Text(
+                    'Hi, Alex 👋',
                     style: TextStyle(
-                      fontSize: 17,
+                      fontSize: context.rp(12.5),
+                      fontWeight: FontWeight.w400,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  SizedBox(height: context.rp(4)),
+                  Text.rich(
+                    const TextSpan(
+                      children: <InlineSpan>[
+                        TextSpan(text: 'Good Food\nGood '),
+                        TextSpan(
+                          text: 'Mood!',
+                          style: TextStyle(
+                            color: AppColors.orange,
+                            fontFamily: AppTheme.fontFamily,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    style: TextStyle(
+                      fontSize: context.rp(32),
+                      height: 1.14,
                       fontWeight: FontWeight.w700,
+                      letterSpacing: -0.6,
                       color: AppColors.textPrimary,
                     ),
                   ),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () => _showSnack('More items coming soon'),
-                    behavior: HitTestBehavior.opaque,
-                    child: const Text(
-                      'View All',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textSecondary,
+                  SizedBox(height: context.rp(18)),
+                  SearchField(
+                    controller: _searchController,
+                    onChanged: (String value) => setState(() => _query = value),
+                    onFilterTap: () => _showSnack('Filters coming soon'),
+                  ),
+                  SizedBox(height: context.rp(18)),
+                  CategoryStrip(
+                    selectedIndex: _selectedCategory,
+                    onSelect: (int index) =>
+                        setState(() => _selectedCategory = index),
+                  ),
+                  SizedBox(height: context.rp(18)),
+                  PromoCard(
+                    onOrder: () => _openDetail(MenuData.spicyChickenBurger),
+                  ),
+                  SizedBox(height: context.rp(20)),
+                  Row(
+                    children: <Widget>[
+                      Flexible(
+                        child: Text(
+                          'Popular Now',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: context.rp(17),
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => _showSnack('More items coming soon'),
+                        behavior: HitTestBehavior.opaque,
+                        child: Text(
+                          'View All',
+                          style: TextStyle(
+                            fontSize: context.rp(11.5),
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: context.rp(14)),
+                  if (items.isEmpty)
+                    Padding(
+                      padding: EdgeInsets.symmetric(vertical: context.rp(40)),
+                      child: Center(
+                        child: Text(
+                          'No dish matches that search.',
+                          style: TextStyle(
+                            fontSize: context.rp(12),
+                            color: AppColors.textTertiary,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    SizedBox(
+                      height: cardHeight,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: items.length,
+                        separatorBuilder: (_, __) =>
+                            SizedBox(width: context.rp(14)),
+                        itemBuilder: (BuildContext context, int index) {
+                          final FoodItem item = items[index];
+                          return FoodCard(
+                            item: item,
+                            width: cardWidth,
+                            height: cardHeight,
+                            onTap: () => _openDetail(item),
+                            onAdd: () =>
+                                _showSnack('${item.name} added to cart'),
+                          );
+                        },
                       ),
                     ),
-                  ),
                 ],
               ),
-              const SizedBox(height: 14),
-              if (items.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 40),
-                  child: Center(
-                    child: Text(
-                      'No dish matches that search.',
-                      style: TextStyle(
-                          fontSize: 12, color: AppColors.textTertiary),
-                    ),
-                  ),
-                )
-              else
-                SizedBox(
-                  height: 208,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: items.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 14),
-                    itemBuilder: (BuildContext context, int index) {
-                      final FoodItem item = items[index];
-                      return FoodCard(
-                        item: item,
-                        onTap: () => _openDetail(item),
-                        onAdd: () => _showSnack('${item.name} added to cart'),
-                      );
-                    },
-                  ),
-                ),
-            ],
+            ),
           ),
         ),
       ],
@@ -218,9 +249,10 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _AvatarBadge extends StatelessWidget {
-  const _AvatarBadge({required this.onTap});
+  const _AvatarBadge({required this.onTap, required this.size});
 
   final VoidCallback onTap;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -228,13 +260,13 @@ class _AvatarBadge extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
-        width: 48,
-        height: 48,
+        width: size + 4,
+        height: size + 4,
         child: Stack(
           children: <Widget>[
             Container(
-              width: 44,
-              height: 44,
+              width: size,
+              height: size,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(color: const Color(0x33FFFFFF), width: 1.2),
@@ -244,11 +276,11 @@ class _AvatarBadge extends StatelessWidget {
                   colors: <Color>[Color(0xFF4A3423), Color(0xFF22160E)],
                 ),
               ),
-              child: const Center(
+              child: Center(
                 child: Text(
                   'A',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: context.rp(16),
                     fontWeight: FontWeight.w600,
                     color: AppColors.orangeLight,
                   ),
@@ -259,8 +291,8 @@ class _AvatarBadge extends StatelessWidget {
               right: 2,
               top: 2,
               child: Container(
-                width: 11,
-                height: 11,
+                width: context.rp(11),
+                height: context.rp(11),
                 decoration: BoxDecoration(
                   color: AppColors.red,
                   shape: BoxShape.circle,

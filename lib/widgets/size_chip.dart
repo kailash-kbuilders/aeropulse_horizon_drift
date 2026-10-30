@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import '../theme/responsive.dart';
 
 class SizeChip extends StatelessWidget {
   const SizeChip({
@@ -21,18 +22,22 @@ class SizeChip extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.rp(14),
+          vertical: context.rp(8),
+        ),
         decoration: BoxDecoration(
           color: selected ? AppColors.orange : const Color(0x14FFFFFF),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(context.rp(10)),
           border: Border.all(
             color: selected ? AppColors.orange : AppColors.stroke,
           ),
         ),
         child: Text(
           label,
+          maxLines: 1,
           style: TextStyle(
-            fontSize: 10.5,
+            fontSize: context.rp(10.5),
             fontWeight: FontWeight.w500,
             color: selected ? Colors.white : AppColors.textSecondary,
           ),

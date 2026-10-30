@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
 /// The small frosted circle used for the menu button, the back button and the
-/// favourite hearts.
+/// favourite hearts. Callers size it, so it stays responsive.
 class CircleIconButton extends StatelessWidget {
   const CircleIconButton({
     super.key,

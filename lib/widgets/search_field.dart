@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import '../theme/responsive.dart';
 
 class SearchField extends StatelessWidget {
   const SearchField({
@@ -17,46 +18,52 @@ class SearchField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      height: context.rp(56),
+      padding: EdgeInsets.symmetric(horizontal: context.rp(16)),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(context.rp(18)),
         border: Border.all(color: AppColors.stroke),
       ),
       child: Row(
         children: <Widget>[
-          const Icon(Icons.search_rounded,
-              size: 20, color: AppColors.textTertiary),
-          const SizedBox(width: 10),
+          Icon(
+            Icons.search_rounded,
+            size: context.rp(20),
+            color: AppColors.textTertiary,
+          ),
+          SizedBox(width: context.rp(10)),
           Expanded(
             child: TextField(
               controller: controller,
               onChanged: onChanged,
-              style: const TextStyle(
-                fontSize: 13,
+              style: TextStyle(
+                fontSize: context.rp(13),
                 color: AppColors.textPrimary,
                 fontWeight: FontWeight.w400,
               ),
               cursorColor: AppColors.orange,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 isDense: true,
                 border: InputBorder.none,
                 hintText: 'Search your favorite food',
                 hintStyle: TextStyle(
-                  fontSize: 13,
+                  fontSize: context.rp(13),
                   color: AppColors.textTertiary,
                   fontWeight: FontWeight.w400,
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: context.rp(8)),
           GestureDetector(
             onTap: onFilterTap,
             behavior: HitTestBehavior.opaque,
-            child: const Icon(Icons.tune_rounded,
-                size: 20, color: AppColors.textPrimary),
+            child: Icon(
+              Icons.tune_rounded,
+              size: context.rp(20),
+              color: AppColors.textPrimary,
+            ),
           ),
         ],
       ),

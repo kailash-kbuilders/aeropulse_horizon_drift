@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import '../theme/responsive.dart';
 
 class NavDestination {
   const NavDestination({required this.label, required this.icon});
@@ -30,14 +31,17 @@ class AppBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 68,
+      height: context.rp(68),
       decoration: BoxDecoration(
         color: const Color(0xFF15151A),
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(context.rp(26)),
         border: Border.all(color: AppColors.stroke),
         boxShadow: const <BoxShadow>[
           BoxShadow(
-              color: Color(0x99000000), blurRadius: 26, offset: Offset(0, 10)),
+            color: Color(0x99000000),
+            blurRadius: 26,
+            offset: Offset(0, 10),
+          ),
         ],
       ),
       child: Row(
@@ -53,17 +57,25 @@ class AppBottomNav extends StatelessWidget {
                 children: <Widget>[
                   Icon(
                     d.icon,
-                    size: 21,
+                    size: context.rp(21),
                     color: selected ? AppColors.orange : AppColors.textTertiary,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    d.label,
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                      color:
-                          selected ? AppColors.orange : AppColors.textTertiary,
+                  SizedBox(height: context.rp(4)),
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        d.label,
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontSize: context.rp(9.5),
+                          fontWeight:
+                              selected ? FontWeight.w600 : FontWeight.w500,
+                          color: selected
+                              ? AppColors.orange
+                              : AppColors.textTertiary,
+                        ),
+                      ),
                     ),
                   ),
                 ],

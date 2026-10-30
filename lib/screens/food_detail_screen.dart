@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/menu_data.dart';
 import '../models/food_item.dart';
 import '../theme/app_theme.dart';
+import '../theme/responsive.dart';
 import '../widgets/circle_icon_button.dart';
 import '../widgets/size_chip.dart';
 import '../widgets/toggle_row.dart';
@@ -58,9 +59,10 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
           ),
           backgroundColor: const Color(0xFF232329),
           behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          margin: const EdgeInsets.fromLTRB(20, 0, 20, 96),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           duration: const Duration(seconds: 2),
         ),
       );
@@ -68,196 +70,228 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final double heroHeight = MediaQuery.of(context).size.height * 0.38;
+    final Size screen = MediaQuery.sizeOf(context);
+    final double heroHeight = (screen.height * 0.38).clamp(170.0, 360.0);
+    final double contentWidth = Responsive.contentWidth(context);
 
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: Stack(
+        fit: StackFit.expand,
         children: <Widget>[
-          Column(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
+              const Spacer(),
               SizedBox(
-                height: heroHeight,
-                width: double.infinity,
-                child: Stack(
-                  fit: StackFit.expand,
+                width: contentWidth,
+                child: Column(
                   children: <Widget>[
-                    Image.asset(
-                      MenuData.heroImage,
-                      fit: BoxFit.cover,
-                      alignment: Alignment.center,
+                    SizedBox(
+                      height: heroHeight,
+                      width: double.infinity,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: <Widget>[
+                          Image.asset(
+                            MenuData.heroImage,
+                            fit: BoxFit.cover,
+                            alignment: Alignment.center,
+                          ),
+                          const DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: <Color>[
+                                  Color(0x66000000),
+                                  Color(0x00000000),
+                                  Color(0xCC0B0B0D),
+                                  AppColors.sheet,
+                                ],
+                                stops: <double>[0.0, 0.35, 0.85, 1.0],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: <Color>[
-                            Color(0x66000000),
-                            Color(0x00000000),
-                            Color(0xCC0B0B0D),
-                            AppColors.sheet,
-                          ],
-                          stops: <double>[0.0, 0.35, 0.85, 1.0],
+                    Expanded(
+                      child: Container(
+                        width: double.infinity,
+                        color: AppColors.sheet,
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          padding: EdgeInsets.fromLTRB(
+                            context.rp(22),
+                            context.rp(18),
+                            context.rp(22),
+                            context.rp(26),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Row(
+                                children: <Widget>[
+                                  _TagPill(label: widget.item.tag ?? 'Popular'),
+                                  const Spacer(),
+                                  Container(
+                                    width: context.rp(32),
+                                    height: context.rp(32),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0x14FFFFFF),
+                                      borderRadius: BorderRadius.circular(
+                                        context.rp(10),
+                                      ),
+                                      border: Border.all(
+                                        color: AppColors.stroke,
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      Icons.grid_view_rounded,
+                                      size: context.rp(15),
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: context.rp(14)),
+                              Text(
+                                widget.item.name,
+                                style: TextStyle(
+                                  fontSize: context.rp(22),
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.3,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              SizedBox(height: context.rp(8)),
+                              Row(
+                                children: <Widget>[
+                                  Icon(
+                                    Icons.star_rounded,
+                                    size: context.rp(16),
+                                    color: AppColors.amber,
+                                  ),
+                                  SizedBox(width: context.rp(4)),
+                                  Text(
+                                    widget.item.rating.toStringAsFixed(1),
+                                    style: TextStyle(
+                                      fontSize: context.rp(12),
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  SizedBox(width: context.rp(4)),
+                                  Text(
+                                    '(${widget.item.reviews})',
+                                    style: TextStyle(
+                                      fontSize: context.rp(11),
+                                      color: AppColors.textTertiary,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      '\$${widget.item.price.toStringAsFixed(2)}',
+                                      style: TextStyle(
+                                        fontSize: context.rp(18),
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.orange,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: context.rp(12)),
+                              Text(
+                                widget.item.description,
+                                style: TextStyle(
+                                  fontSize: context.rp(12),
+                                  height: 1.6,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              SizedBox(height: context.rp(18)),
+                              const Divider(color: AppColors.stroke, height: 1),
+                              SizedBox(height: context.rp(16)),
+                              Text(
+                                'Customize',
+                                style: TextStyle(
+                                  fontSize: context.rp(13.5),
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              SizedBox(height: context.rp(12)),
+                              Row(
+                                children: <Widget>[
+                                  Text(
+                                    'Size',
+                                    style: TextStyle(
+                                      fontSize: context.rp(12),
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                  SizedBox(width: context.rp(12)),
+                                  Expanded(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerRight,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: <Widget>[
+                                          for (int i = 0;
+                                              i < _sizes.length;
+                                              i++)
+                                            Padding(
+                                              padding: EdgeInsets.only(
+                                                left:
+                                                    i == 0 ? 0 : context.rp(8),
+                                              ),
+                                              child: SizeChip(
+                                                label: _sizes[i],
+                                                selected: _sizeIndex == i,
+                                                onTap: () => setState(
+                                                  () => _sizeIndex = i,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: context.rp(12)),
+                              ToggleRow(
+                                label: 'Add Cheese',
+                                value: _addCheese,
+                                onChanged: (bool v) =>
+                                    setState(() => _addCheese = v),
+                              ),
+                              ToggleRow(
+                                label: 'Extra Patty',
+                                value: _extraPatty,
+                                onChanged: (bool v) =>
+                                    setState(() => _extraPatty = v),
+                              ),
+                              ToggleRow(
+                                label: 'Add Bacon',
+                                value: _addBacon,
+                                onChanged: (bool v) =>
+                                    setState(() => _addBacon = v),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  color: AppColors.sheet,
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(22, 18, 22, 26),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Row(
-                          children: <Widget>[
-                            _TagPill(label: widget.item.tag ?? 'Popular'),
-                            const Spacer(),
-                            Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: const Color(0x14FFFFFF),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: AppColors.stroke),
-                              ),
-                              child: const Icon(
-                                Icons.grid_view_rounded,
-                                size: 15,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        Text(
-                          widget.item.name,
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.3,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: <Widget>[
-                            const Icon(
-                              Icons.star_rounded,
-                              size: 16,
-                              color: AppColors.amber,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              widget.item.rating.toStringAsFixed(1),
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '(${widget.item.reviews})',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppColors.textTertiary,
-                              ),
-                            ),
-                            const Spacer(),
-                            Text(
-                              '\$${widget.item.price.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.orange,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          widget.item.description,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            height: 1.6,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-                        const Divider(color: AppColors.stroke, height: 1),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Customize',
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: <Widget>[
-                            const Text(
-                              'Size',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: Alignment.centerRight,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: <Widget>[
-                                    for (int i = 0; i < _sizes.length; i++)
-                                      Padding(
-                                        padding: EdgeInsets.only(
-                                            left: i == 0 ? 0 : 8),
-                                        child: SizeChip(
-                                          label: _sizes[i],
-                                          selected: _sizeIndex == i,
-                                          onTap: () =>
-                                              setState(() => _sizeIndex = i),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        ToggleRow(
-                          label: 'Add Cheese',
-                          value: _addCheese,
-                          onChanged: (bool v) => setState(() => _addCheese = v),
-                        ),
-                        ToggleRow(
-                          label: 'Extra Patty',
-                          value: _extraPatty,
-                          onChanged: (bool v) =>
-                              setState(() => _extraPatty = v),
-                        ),
-                        ToggleRow(
-                          label: 'Add Bacon',
-                          value: _addBacon,
-                          onChanged: (bool v) => setState(() => _addBacon = v),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+              const Spacer(),
             ],
           ),
           Positioned(
@@ -266,28 +300,40 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
             right: 0,
             child: SafeArea(
               bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 10, 18, 0),
-                child: Row(
-                  children: <Widget>[
-                    CircleIconButton(
-                      icon: Icons.arrow_back_ios_new_rounded,
-                      iconSize: 16,
-                      onTap: () => Navigator.of(context).maybePop(),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: contentWidth),
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      context.rp(18),
+                      context.rp(10),
+                      context.rp(18),
+                      0,
                     ),
-                    const Spacer(),
-                    CircleIconButton(
-                      icon: _liked
-                          ? Icons.favorite_rounded
-                          : Icons.favorite_border_rounded,
-                      iconSize: 18,
-                      background:
-                          _liked ? AppColors.red : const Color(0xCC101012),
-                      borderColor:
-                          _liked ? AppColors.red : const Color(0x33FFFFFF),
-                      onTap: () => setState(() => _liked = !_liked),
+                    child: Row(
+                      children: <Widget>[
+                        CircleIconButton(
+                          icon: Icons.arrow_back_ios_new_rounded,
+                          size: context.rp(44),
+                          iconSize: context.rp(16),
+                          onTap: () => Navigator.of(context).maybePop(),
+                        ),
+                        const Spacer(),
+                        CircleIconButton(
+                          icon: _liked
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                          size: context.rp(44),
+                          iconSize: context.rp(18),
+                          background:
+                              _liked ? AppColors.red : const Color(0xCC101012),
+                          borderColor:
+                              _liked ? AppColors.red : const Color(0x33FFFFFF),
+                          onTap: () => setState(() => _liked = !_liked),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -295,109 +341,129 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> {
         ],
       ),
       bottomNavigationBar: Container(
-        padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
         decoration: const BoxDecoration(
           color: AppColors.sheet,
           border: Border(top: BorderSide(color: AppColors.stroke)),
         ),
         child: SafeArea(
           top: false,
-          child: Row(
-            children: <Widget>[
-              Container(
-                height: 54,
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.stroke),
+          child: Center(
+            heightFactor: 1,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: contentWidth),
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  context.rp(18),
+                  context.rp(12),
+                  context.rp(18),
+                  context.rp(16),
                 ),
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
-                    _StepButton(
-                      icon: Icons.remove_rounded,
-                      enabled: _quantity > 1,
-                      onTap: () => setState(() => _quantity -= 1),
+                    Container(
+                      height: context.rp(54),
+                      padding: EdgeInsets.symmetric(horizontal: context.rp(4)),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(context.rp(16)),
+                        border: Border.all(color: AppColors.stroke),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          _StepButton(
+                            icon: Icons.remove_rounded,
+                            enabled: _quantity > 1,
+                            onTap: () => setState(() => _quantity -= 1),
+                          ),
+                          SizedBox(
+                            width: context.rp(22),
+                            child: Center(
+                              child: Text(
+                                '$_quantity',
+                                style: TextStyle(
+                                  fontSize: context.rp(14),
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                          ),
+                          _StepButton(
+                            icon: Icons.add_rounded,
+                            enabled: true,
+                            onTap: () => setState(() => _quantity += 1),
+                          ),
+                        ],
+                      ),
                     ),
-                    SizedBox(
-                      width: 22,
-                      child: Center(
-                        child: Text(
-                          '$_quantity',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
+                    SizedBox(width: context.rp(12)),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: _addToCart,
+                        behavior: HitTestBehavior.opaque,
+                        child: Container(
+                          height: context.rp(54),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(context.rp(16)),
+                            gradient: const LinearGradient(
+                              colors: <Color>[
+                                AppColors.orange,
+                                AppColors.orangeLight,
+                              ],
+                            ),
+                            boxShadow: const <BoxShadow>[
+                              BoxShadow(
+                                color: Color(0x66FF7A18),
+                                blurRadius: 20,
+                                offset: Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: context.rp(12),
+                            ),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: <Widget>[
+                                  Text(
+                                    'Add to Cart',
+                                    style: TextStyle(
+                                      fontSize: context.rp(13.5),
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  Container(
+                                    width: 1,
+                                    height: context.rp(18),
+                                    margin: EdgeInsets.symmetric(
+                                      horizontal: context.rp(12),
+                                    ),
+                                    color: const Color(0x4DFFFFFF),
+                                  ),
+                                  Text(
+                                    '\$${_total.toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                      fontSize: context.rp(13.5),
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    _StepButton(
-                      icon: Icons.add_rounded,
-                      enabled: true,
-                      onTap: () => setState(() => _quantity += 1),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: GestureDetector(
-                  onTap: _addToCart,
-                  behavior: HitTestBehavior.opaque,
-                  child: Container(
-                    height: 54,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      gradient: const LinearGradient(
-                        colors: <Color>[
-                          AppColors.orange,
-                          AppColors.orangeLight
-                        ],
-                      ),
-                      boxShadow: const <BoxShadow>[
-                        BoxShadow(
-                          color: Color(0x66FF7A18),
-                          blurRadius: 20,
-                          offset: Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: <Widget>[
-                          const Text(
-                            'Add to Cart',
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
-                          Container(
-                            width: 1,
-                            height: 18,
-                            margin: const EdgeInsets.symmetric(horizontal: 12),
-                            color: const Color(0x4DFFFFFF),
-                          ),
-                          Text(
-                            '\$${_total.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -413,15 +479,18 @@ class _TagPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      padding: EdgeInsets.symmetric(
+        horizontal: context.rp(12),
+        vertical: context.rp(5),
+      ),
       decoration: BoxDecoration(
         color: AppColors.orange,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(context.rp(20)),
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          fontSize: 10,
+        style: TextStyle(
+          fontSize: context.rp(10),
           fontWeight: FontWeight.w600,
           color: Colors.white,
         ),
@@ -447,16 +516,16 @@ class _StepButton extends StatelessWidget {
       onTap: enabled ? onTap : null,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        width: 40,
-        height: 40,
+        width: context.rp(40),
+        height: context.rp(40),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: const Color(0x1AFFFFFF),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(context.rp(12)),
         ),
         child: Icon(
           icon,
-          size: 17,
+          size: context.rp(17),
           color: enabled ? AppColors.textPrimary : AppColors.textTertiary,
         ),
       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import '../theme/responsive.dart';
 import '../widgets/app_bottom_nav.dart';
 import 'empty_tab_screen.dart';
 import 'home_screen.dart';
@@ -43,10 +44,23 @@ class _RootShellState extends State<RootShell> {
       extendBody: true,
       body: IndexedStack(index: _index, children: tabs),
       bottomNavigationBar: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        padding: EdgeInsets.fromLTRB(
+          context.rp(16),
+          0,
+          context.rp(16),
+          context.rp(12),
+        ),
         child: SafeArea(
           top: false,
-          child: AppBottomNav(currentIndex: _index, onSelect: _select),
+          child: Center(
+            heightFactor: 1,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: Responsive.maxContentWidth,
+              ),
+              child: AppBottomNav(currentIndex: _index, onSelect: _select),
+            ),
+          ),
         ),
       ),
     );
